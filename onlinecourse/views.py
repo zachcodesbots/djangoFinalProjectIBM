@@ -120,10 +120,13 @@ def extract_answers(request):
          # Add each selected choice object to the submission object
          # Redirect to show_exam_result with the submission id
 def submit(request, course_id):
-    enrollement = Enrollment.objects.get(user=request.user, course=get_object_or_404(Course, pk=course_id))
-    submission = Submission.objects.create(enrollement=enrollement, choices=extract_answers(request))
+    course = get_object_or_404(Course, pk=course_id)
+    enrollment = Enrollment.objects.get(user=request.user, course=course)
+    submission = Submission.objects.create(enrollment=enrollment)
+    choices = extract_answers(request)
+    submission.choices.set(choices)
     submission_id = submission.id
-    return HttpResponseRedirect(reverse(viewname='onlinecourse:examresult', args=(course_id, submission_id)))
+    return HttpResponseRedirect(reverse(viewname='onlinecourse:exam_result', args=(course_id, submission_id)))
 
 
 # <HINT> Create an exam result view to check if learner passed exam and show their question results and result for each question,
@@ -138,22 +141,19 @@ def show_exam_result(request, course_id, submission_id):
     choices = submission.choices.all()
     
     total_score = 0
-    questions = coutse.question_set.all()
+    questions = course.question_set.all()
 
     for question in questions:
         correct_choices = question.choice_set.filter(is_correct=True)
         selected_choices = choices.filter(question=question)
 
-        if correct_choices == selected_choices:
+        if set(correct_choices) == set(selected_choices):
             total_score += question.grade
     
     context = {
         'course': course,
-        'grade': grade,
+        'grade': total_score,
         'choices': choices
     }
 
     return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
-
-
-
